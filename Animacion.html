@@ -1,1 +1,207 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pregunta animada GSAP</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #00FF00;
+    }
 
+    svg {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #00FF00;
+    }
+
+    .main {
+      fill: #FFB7B2;
+    }
+
+    .shadow {
+      fill: #CC928E;
+      opacity: 0.55;
+    }
+  </style>
+</head>
+<body>
+  <svg id="scene" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet"></svg>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script>
+    const svg = document.getElementById('scene');
+
+    const BASE_DURATION = 10;
+    const params = new URLSearchParams(window.location.search);
+    const wanted = Number(params.get('duracion'));
+    const finalDuration = Number.isFinite(wanted) && wanted > 0 ? wanted : BASE_DURATION;
+
+    const TEXT = 'Como funciona una computadora cuántica';
+    const FONT_SIZE = 92;
+    const LETTER_GAP = 2;
+    const BASELINE_Y = 580;
+
+    function s(tag, attrs = {}) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+      return el;
+    }
+
+    const root = s('g');
+    svg.appendChild(root);
+
+    // Medición para centrado real.
+    const measure = s('text', {
+      x: 0,
+      y: -9999,
+      'font-size': FONT_SIZE,
+      'font-family': 'Arial, Helvetica, sans-serif',
+      'font-weight': '700',
+      'letter-spacing': LETTER_GAP
+    });
+    measure.textContent = TEXT;
+    svg.appendChild(measure);
+    const textWidth = measure.getComputedTextLength();
+    measure.remove();
+
+    const startX = (1920 - (textWidth + 110)) / 2;
+    const markStartX = startX;
+    const markEndX = startX + textWidth + 60;
+
+    const sentenceLayer = s('g');
+    const markLayer = s('g');
+    root.appendChild(sentenceLayer);
+    root.appendChild(markLayer);
+
+    function makeCharacter(ch, x, y) {
+      const g = s('g');
+
+      const shadow = s('text', {
+        x: x + 4,
+        y: y + 4,
+        'font-size': FONT_SIZE,
+        'font-family': 'Arial, Helvetica, sans-serif',
+        'font-weight': '700',
+        'letter-spacing': LETTER_GAP,
+        class: 'shadow'
+      });
+      shadow.textContent = ch;
+
+      const main = s('text', {
+        x,
+        y,
+        'font-size': FONT_SIZE,
+        'font-family': 'Arial, Helvetica, sans-serif',
+        'font-weight': '700',
+        'letter-spacing': LETTER_GAP,
+        class: 'main'
+      });
+      main.textContent = ch;
+
+      g.appendChild(shadow);
+      g.appendChild(main);
+      return g;
+    }
+
+    const mark = makeCharacter('?', markStartX, BASELINE_Y);
+    markLayer.appendChild(mark);
+
+    const chars = [];
+    let cursor = startX;
+
+    for (const ch of TEXT) {
+      const m = s('text', {
+        x: 0,
+        y: -9999,
+        'font-size': FONT_SIZE,
+        'font-family': 'Arial, Helvetica, sans-serif',
+        'font-weight': '700'
+      });
+      m.textContent = ch === ' ' ? '\u00A0' : ch;
+      svg.appendChild(m);
+      const cw = m.getComputedTextLength() + LETTER_GAP;
+      m.remove();
+
+      const letter = makeCharacter(ch === ' ' ? '\u00A0' : ch, cursor, BASELINE_Y);
+      sentenceLayer.appendChild(letter);
+
+      chars.push({ node: letter, x: cursor });
+      cursor += cw;
+    }
+
+    gsap.set(markLayer, { transformOrigin: `${markStartX}px ${BASELINE_Y}px`, scale: 0, x: 0, y: 0 });
+    gsap.set(chars.map(c => c.node), {
+      x: markStartX - startX,
+      y: 0,
+      scale: 0.25,
+      opacity: 0,
+      transformOrigin: '50% 70%'
+    });
+
+    const tl = gsap.timeline();
+
+    // Fase 1: nace el signo.
+    tl.to(markLayer, {
+      duration: 0.9,
+      scale: 1,
+      ease: 'back.out(2)'
+    });
+
+    // Fase 2: flotación breve.
+    tl.to(markLayer, {
+      duration: 1.0,
+      y: -16,
+      repeat: 1,
+      yoyo: true,
+      ease: 'sine.inOut'
+    });
+
+    // Fase 3: letras salen del signo y lo empujan hacia el final.
+    const appearDuration = 4.6;
+    tl.to(chars.map(c => c.node), {
+      duration: appearDuration,
+      x: 0,
+      opacity: 1,
+      scale: 1,
+      ease: 'power3.out',
+      stagger: {
+        each: 0.07,
+        from: 'start'
+      }
+    }, '>-0.15');
+
+    tl.to(markLayer, {
+      duration: appearDuration,
+      x: markEndX - markStartX,
+      ease: 'power2.inOut'
+    }, '<');
+
+    // Micro-rebotes para sensación de empuje.
+    tl.to(markLayer, {
+      duration: 0.55,
+      x: `+=12`,
+      y: -8,
+      repeat: 3,
+      yoyo: true,
+      ease: 'sine.inOut'
+    }, '<0.25');
+
+    // Fase 4: cierre.
+    tl.to(root, {
+      duration: 1.1,
+      scale: 0,
+      transformOrigin: '960px 540px',
+      ease: 'back.in(1.5)'
+    }, '+=0.25');
+
+    const naturalTotal = tl.duration();
+    tl.timeScale(naturalTotal / finalDuration);
+  </script>
+</body>
+</html>
