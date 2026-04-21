@@ -1,1 +1,343 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pixel Art GSAP</title>
+  <style>
+    :root {
+      --bg: #00ff00;
+      --main: #ffb7b2;
+      --shadow: #cc928e;
+    }
 
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    svg {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: var(--bg);
+      shape-rendering: crispEdges;
+      text-rendering: geometricPrecision;
+      image-rendering: pixelated;
+    }
+
+    rect.pixel {
+      shape-rendering: crispEdges;
+      vector-effect: non-scaling-stroke;
+      stroke: none;
+    }
+  </style>
+</head>
+<body>
+  <svg id="scene" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet" aria-label="Animación pixel art"></svg>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script>
+    const svg = document.getElementById('scene');
+
+    const BASE_DURATION = 12;
+    const params = new URLSearchParams(window.location.search);
+    const requestedDuration = Number(params.get('duracion'));
+    const finalDuration = Number.isFinite(requestedDuration) && requestedDuration > 0 ? requestedDuration : BASE_DURATION;
+
+    const PIXEL = 14;
+    const LETTER_SPACING = 2;
+    const WORD_SPACING = 5;
+    const COLOR_MAIN = '#FFB7B2';
+    const COLOR_SHADOW = '#CC928E';
+
+    const FONT = {
+      'A': [
+        '01110',
+        '10001',
+        '10001',
+        '11111',
+        '10001',
+        '10001',
+        '10001'
+      ],
+      'Á': [
+        '00100',
+        '01110',
+        '10001',
+        '10001',
+        '11111',
+        '10001',
+        '10001'
+      ],
+      'C': [
+        '01111',
+        '10000',
+        '10000',
+        '10000',
+        '10000',
+        '10000',
+        '01111'
+      ],
+      'D': [
+        '11110',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '11110'
+      ],
+      'F': [
+        '11111',
+        '10000',
+        '10000',
+        '11110',
+        '10000',
+        '10000',
+        '10000'
+      ],
+      'I': [
+        '11111',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+        '11111'
+      ],
+      'M': [
+        '10001',
+        '11011',
+        '10101',
+        '10101',
+        '10001',
+        '10001',
+        '10001'
+      ],
+      'N': [
+        '10001',
+        '11001',
+        '10101',
+        '10011',
+        '10001',
+        '10001',
+        '10001'
+      ],
+      'O': [
+        '01110',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '01110'
+      ],
+      'P': [
+        '11110',
+        '10001',
+        '10001',
+        '11110',
+        '10000',
+        '10000',
+        '10000'
+      ],
+      'Q': [
+        '01110',
+        '10001',
+        '10001',
+        '10001',
+        '10101',
+        '10010',
+        '01101'
+      ],
+      'R': [
+        '11110',
+        '10001',
+        '10001',
+        '11110',
+        '10100',
+        '10010',
+        '10001'
+      ],
+      'T': [
+        '11111',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+        '00100',
+        '00100'
+      ],
+      'U': [
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '10001',
+        '01110'
+      ],
+      '?': [
+        '01110',
+        '10001',
+        '00001',
+        '00010',
+        '00100',
+        '00000',
+        '00100'
+      ],
+      '¿': [
+        '00100',
+        '00000',
+        '00100',
+        '01000',
+        '10000',
+        '10001',
+        '01110'
+      ],
+      ' ': [
+        '00000',
+        '00000',
+        '00000',
+        '00000',
+        '00000',
+        '00000',
+        '00000'
+      ]
+    };
+
+    function makeGroup(name) {
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('data-name', name);
+      svg.appendChild(g);
+      return g;
+    }
+
+    function drawGlyph(glyphGroup, ch, x, y, size) {
+      const pattern = FONT[ch] || FONT[' '];
+      const pixels = [];
+      const active = [];
+
+      pattern.forEach((row, rowIndex) => {
+        [...row].forEach((bit, colIndex) => {
+          if (bit === '1') {
+            active.push({ colIndex, rowIndex });
+          }
+        });
+      });
+
+      active.forEach(({ colIndex, rowIndex }) => {
+        const shadowRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        shadowRect.setAttribute('class', 'pixel shadow');
+        shadowRect.setAttribute('x', x + (colIndex + 0.18) * size);
+        shadowRect.setAttribute('y', y + (rowIndex + 0.18) * size);
+        shadowRect.setAttribute('width', size);
+        shadowRect.setAttribute('height', size);
+        shadowRect.setAttribute('fill', COLOR_SHADOW);
+        shadowRect.setAttribute('opacity', '0');
+
+        const mainRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        mainRect.setAttribute('class', 'pixel main');
+        mainRect.setAttribute('x', x + colIndex * size);
+        mainRect.setAttribute('y', y + rowIndex * size);
+        mainRect.setAttribute('width', size);
+        mainRect.setAttribute('height', size);
+        mainRect.setAttribute('fill', COLOR_MAIN);
+        mainRect.setAttribute('opacity', '0');
+
+        glyphGroup.appendChild(shadowRect);
+        glyphGroup.appendChild(mainRect);
+
+        pixels.push(shadowRect, mainRect);
+      });
+
+      return { pixels, width: pattern[0].length * size };
+    }
+
+    function layoutPhrase(group, phrase, startX, startY, size) {
+      const chars = [...phrase];
+      let cursor = startX;
+      const glyphs = [];
+
+      chars.forEach((ch) => {
+        const glyphGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        group.appendChild(glyphGroup);
+
+        const glyph = drawGlyph(glyphGroup, ch, cursor, startY, size);
+        glyphs.push({ ch, glyphGroup, pixels: glyph.pixels });
+
+        cursor += glyph.width + ((ch === ' ') ? WORD_SPACING * size : LETTER_SPACING * size);
+      });
+
+      return { glyphs, width: cursor - startX };
+    }
+
+    const markLayer = makeGroup('mark-layer');
+    const textLayer = makeGroup('text-layer');
+    const master = makeGroup('master');
+    master.appendChild(markLayer);
+    master.appendChild(textLayer);
+
+    const question = '¿Como funciona una computadora cuántica?';
+
+    const markSize = PIXEL * 2.6;
+    const markX = 1920 / 2 - (5 * markSize) / 2;
+    const markY = 1080 / 2 - (7 * markSize) / 2 - 80;
+    drawGlyph(markLayer, '?', markX, markY, markSize);
+
+    const textSize = PIXEL;
+    const estimatedStartX = 180;
+    const textY = 620;
+    const textData = layoutPhrase(textLayer, question, estimatedStartX, textY, textSize);
+    const textOffsetX = (1920 - textData.width) / 2 - estimatedStartX;
+    gsap.set(textLayer, { x: textOffsetX });
+
+    gsap.set(markLayer, { transformOrigin: '50% 50%', scale: 0 });
+
+    const tl = gsap.timeline({ defaults: { ease: 'none' } });
+
+    tl.to(markLayer, {
+      duration: 1.0,
+      scale: 1,
+      ease: 'back.out(2)'
+    });
+
+    tl.to({}, { duration: 1.0 });
+
+    const textPixels = [];
+    textData.glyphs.forEach((g) => {
+      g.pixels.forEach((p) => textPixels.push(p));
+    });
+
+    const maxPush = -360;
+    tl.to(textPixels, {
+      duration: 3.4,
+      opacity: 1,
+      stagger: {
+        each: 0.006,
+        from: 'start',
+        grid: 'auto'
+      },
+      onUpdate: function () {
+        const progress = this.progress();
+        const eased = gsap.parseEase('power2.out')(progress);
+        gsap.set(markLayer, { y: maxPush * eased });
+      }
+    }, '>-0.1');
+
+    tl.to(master, {
+      duration: 1.2,
+      scale: 0,
+      transformOrigin: '50% 50%',
+      ease: 'back.in(1.5)'
+    }, '+=0.2');
+
+    const baseTotal = tl.duration();
+    tl.timeScale(baseTotal / finalDuration);
+  </script>
+</body>
+</html>
